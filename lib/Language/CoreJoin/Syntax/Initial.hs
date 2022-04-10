@@ -36,34 +36,32 @@ instance Syntax.Abstract.CoreJoinSyntax InitialSyntax where
 
 -- | Process
 data Process where
-  ProcSend :: Value -> [Value] -> Process
-  ProcLocalDef :: Definition -> Process -> Process
-  ProcParallel :: Process -> Process -> Process
+  ProcSend :: !Value -> ![Value] -> Process
+  ProcLocalDef :: !Definition -> !Process -> Process
+  ProcParallel :: !Process -> !Process -> Process
   ProcInert :: Process
   deriving stock (Eq, Ord, Show)
 
 instance Syntax.Abstract.Process InitialSyntax Process where
+  {-# INLINE send #-}
   send procVal msgVals = ProcSend procVal (F.toList msgVals)
 
+  {-# INLINE localDef #-}
   localDef DefVoid p = p
   localDef def p = ProcLocalDef def p
 
+  {-# INLINE parallel #-}
   parallel ProcInert b = b
   parallel a ProcInert = a
   parallel a b = ProcParallel a b
 
+  {-# INLINE inert #-}
   inert = ProcInert
-
-instance Semigroup Process where
-  a <> b = Syntax.Abstract.parallel a b
-
-instance Monoid Process where
-  mempty = Syntax.Abstract.inert
 
 -- | Definition
 data Definition where
-  DefReactionRule :: Pattern -> Process -> Definition
-  DefComposition :: Definition -> Definition -> Definition
+  DefReactionRule :: !Pattern -> !Process -> Definition
+  DefComposition :: !Definition -> !Definition -> Definition
   DefVoid :: Definition
   deriving stock (Eq, Ord, Show)
 
@@ -76,18 +74,10 @@ instance Syntax.Abstract.Definition InitialSyntax Definition where
 
   reaction = DefReactionRule
 
-instance Semigroup Definition where
-  {-# INLINE (<>) #-}
-  (<>) = Syntax.Abstract.compose
-
-instance Monoid Definition where
-  {-# INLINE mempty #-}
-  mempty = Syntax.Abstract.void
-
 -- | Pattern
 data Pattern where
-  PatMessage :: Name -> [Name] -> Pattern
-  PatSynchronization :: Pattern -> Pattern -> Pattern
+  PatMessage :: !Name -> ![Name] -> Pattern
+  PatSynchronization :: !Pattern -> !Pattern -> Pattern
   deriving stock (Eq, Ord, Show)
 
 instance Syntax.Abstract.Pattern InitialSyntax Pattern where
@@ -108,8 +98,8 @@ instance Syntax.Abstract.Pattern InitialSyntax Pattern where
 
 -- | Value
 data Value where
-  ValueLiteral :: Literal -> Value
-  ValueVarLookup :: Name -> Value
+  ValueLiteral :: !Literal -> Value
+  ValueVarLookup :: !Name -> Value
   deriving stock (Eq, Ord, Show)
 
 instance IsString Value where
@@ -125,8 +115,8 @@ instance Syntax.Abstract.Name InitialSyntax Name where
 
 -- | Literal
 data Literal where
-  LitInteger :: Integer -> Literal
-  LitDouble :: Double -> Literal
+  LitInteger :: {-# UNPACK #-} !Integer -> Literal
+  LitDouble :: {-# UNPACK #-} !Double -> Literal
   deriving stock (Eq, Ord, Show)
 
 instance Syntax.Abstract.Literal InitialSyntax Integer where
@@ -158,8 +148,8 @@ freeVariables = \case
     ValueVarLookup na -> Set.singleton na
 
 data DefinitionVariables = MkDefinitionVariables
-  { definitionIntroducedNames :: Set Name
-  , definitionFreeNames :: Set Name
+  { definitionIntroducedNames :: !(Set Name)
+  , definitionFreeNames :: !(Set Name)
   }
 
 definitionVars :: Definition -> DefinitionVariables
@@ -184,9 +174,9 @@ definitionVars = \case
   DefVoid -> MkDefinitionVariables Set.empty Set.empty
 
 data PatternVariables = MkPatternVariables
-  { patternProcessNames :: Set Name
-  , patternItemNames :: Set Name
-  , patternNamesDefinedMultipleTimes :: Set Name
+  { patternProcessNames :: !(Set Name)
+  , patternItemNames :: !(Set Name)
+  , patternNamesDefinedMultipleTimes :: !(Set Name)
   }
 
 patternVariables :: Pattern -> PatternVariables
