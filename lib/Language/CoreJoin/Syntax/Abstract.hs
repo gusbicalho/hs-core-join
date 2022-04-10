@@ -4,6 +4,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -17,6 +18,7 @@ module Language.CoreJoin.Syntax.Abstract (
   Literal (..),
 ) where
 
+import Data.Coerce (coerce)
 import Data.Kind (Constraint, Type)
 import Data.List.NonEmpty (NonEmpty ((:|)))
 import Data.String (IsString)
@@ -61,7 +63,7 @@ P, Q, R ::=       processes
   || P | Q        parallel composition
   || 0            inert process
 -}
-class (Monoid proc, proc ~ ProcessSyntax syntax) => Process syntax proc where
+class (proc ~ ProcessSyntax syntax) => Process syntax proc where
   send ::
     Foldable list =>
     ValueSyntax syntax ->
@@ -80,7 +82,7 @@ D ::=             definitions
   || D /\ D'      composition
   || T            void definition
 -}
-class (Monoid def, def ~ DefinitionSyntax syntax) => Definition syntax def where
+class (def ~ DefinitionSyntax syntax) => Definition syntax def where
   reaction ::
     PatternSyntax syntax ->
     ProcessSyntax syntax ->
