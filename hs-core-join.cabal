@@ -11,6 +11,8 @@ maintainer:         gusbicalho@gmail.com
 
 library
   default-language: Haskell2010
+  default-extensions:
+    ImportQualifiedPost
   hs-source-dirs: lib
   exposed-modules:
     Language.CoreJoin
