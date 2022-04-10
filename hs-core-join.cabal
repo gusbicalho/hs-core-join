@@ -14,8 +14,13 @@ library
   hs-source-dirs: lib
   exposed-modules:
     Language.CoreJoin
+    Language.CoreJoin.Syntax.Abstract
+    Language.CoreJoin.Syntax.Initial
+    Language.CoreJoin.Syntax.Sugar
   build-depends:
-    base ^>=4.14.3.0
+    base ^>=4.14.3.0,
+    containers,
+    multiset
 
 test-suite hs-core-join-test
   type: exitcode-stdio-1.0
