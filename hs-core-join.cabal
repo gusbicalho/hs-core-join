@@ -20,6 +20,8 @@ library
     Language.CoreJoin.Syntax.Abstract
     Language.CoreJoin.Syntax.Initial
     Language.CoreJoin.Syntax.Sugar
+  other-modules:
+    Utils.Transformers
   build-depends:
     base ^>=4.14.3.0,
     containers,

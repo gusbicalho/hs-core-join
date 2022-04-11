@@ -63,8 +63,8 @@ ex1 =
     [ "print" |<< [litI 1, litD 2.3]
     ]
 
-ex1Initial :: Syntax.Initial.Process
-ex1Initial = ex1 :: Syntax.Initial.Process
+ex1Initial :: Syntax.Initial.Process String
+ex1Initial = ex1 :: Syntax.Initial.Process String
 
 -- >>> Syntax.Initial.freeVariables ex1Initial
 -- fromList [Name "print"]

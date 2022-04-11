@@ -1,10 +1,15 @@
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE DeriveTraversable #-}
 
 module Language.CoreJoin.Syntax.Initial (
   Process,
@@ -16,6 +21,7 @@ module Language.CoreJoin.Syntax.Initial (
 ) where
 
 import Control.Applicative qualified as Applicative
+import Data.Coerce (coerce)
 import Data.Foldable qualified as F
 import Data.List.NonEmpty (NonEmpty ((:|)))
 import Data.MultiSet qualified as MultiSet
@@ -25,24 +31,29 @@ import Data.String (IsString (..))
 import GHC.Stack (HasCallStack)
 import Language.CoreJoin.Syntax.Abstract qualified as Syntax.Abstract
 
-data InitialSyntax
+data InitialSyntax name
 
-instance Syntax.Abstract.CoreJoinSyntax InitialSyntax where
-  type ProcessSyntax InitialSyntax = Process
-  type DefinitionSyntax InitialSyntax = Definition
-  type PatternSyntax InitialSyntax = Pattern
-  type ValueSyntax InitialSyntax = Value
-  type NameSyntax InitialSyntax = Name
+instance
+  ( Show name
+  , Ord name
+  ) =>
+  Syntax.Abstract.CoreJoinSyntax (InitialSyntax name)
+  where
+  type ProcessSyntax (InitialSyntax name) = Process name
+  type DefinitionSyntax (InitialSyntax name) = Definition name
+  type PatternSyntax (InitialSyntax name) = Pattern name
+  type ValueSyntax (InitialSyntax name) = Value name
+  type NameSyntax (InitialSyntax name) = Name name
 
 -- | Process
-data Process where
-  ProcSend :: !Name -> ![Value] -> Process
-  ProcLocalDef :: !Definition -> !Process -> Process
-  ProcParallel :: !Process -> !Process -> Process
-  ProcInert :: Process
-  deriving stock (Eq, Ord, Show)
+data Process name where
+  ProcSend :: !(Name name) -> ![Value name] -> Process name
+  ProcLocalDef :: !(Definition name) -> !(Process name) -> Process name
+  ProcParallel :: !(Process name) -> !(Process name) -> Process name
+  ProcInert :: Process name
+  deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-instance Syntax.Abstract.Process InitialSyntax Process where
+instance Syntax.Abstract.Process (InitialSyntax name) (Process name) where
   {-# INLINE send #-}
   send procVal msgVals = ProcSend procVal (F.toList msgVals)
 
@@ -59,13 +70,13 @@ instance Syntax.Abstract.Process InitialSyntax Process where
   inert = ProcInert
 
 -- | Definition
-data Definition where
-  DefReactionRule :: !Pattern -> !Process -> Definition
-  DefComposition :: !Definition -> !Definition -> Definition
-  DefVoid :: Definition
-  deriving stock (Eq, Ord, Show)
+data Definition name where
+  DefReactionRule :: !(Pattern name) -> !(Process name) -> Definition name
+  DefComposition :: !(Definition name) -> !(Definition name) -> Definition name
+  DefVoid :: Definition name
+  deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-instance Syntax.Abstract.Definition InitialSyntax Definition where
+instance Syntax.Abstract.Definition (InitialSyntax name) (Definition name) where
   void = DefVoid
 
   compose DefVoid b = b
@@ -75,16 +86,19 @@ instance Syntax.Abstract.Definition InitialSyntax Definition where
   reaction = DefReactionRule
 
 -- | Pattern
-data Pattern where
-  PatMessage :: !Name -> ![Name] -> Pattern
-  PatSynchronization :: !Pattern -> !Pattern -> Pattern
-  deriving stock (Eq, Ord, Show)
+data Pattern name where
+  PatMessage :: !(Name name) -> ![Name name] -> Pattern name
+  PatSynchronization :: !(Pattern name) -> !(Pattern name) -> Pattern name
+  deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-instance Syntax.Abstract.Pattern InitialSyntax Pattern where
+instance
+  (Ord name, Show name) =>
+  Syntax.Abstract.Pattern (InitialSyntax name) (Pattern name)
+  where
   match procName argNames = PatMessage procName (F.toList argNames)
   syncAll (pat :| more) = checkDuplicates $ foldr PatSynchronization pat more
    where
-    checkDuplicates :: HasCallStack => Pattern -> Pattern
+    checkDuplicates :: HasCallStack => Pattern name -> Pattern name
     checkDuplicates fullPat =
       case patternVariables fullPat of
         MkPatternVariables{patternNamesDefinedMultipleTimes}
@@ -97,20 +111,20 @@ instance Syntax.Abstract.Pattern InitialSyntax Pattern where
                 <> (show fullPat <> "\n")
 
 -- | Value
-data Value where
-  ValueLiteral :: !Literal -> Value
-  ValueVarLookup :: !Name -> Value
-  deriving stock (Eq, Ord, Show)
+data Value name where
+  ValueLiteral :: !Literal -> Value name
+  ValueVarLookup :: !(Name name) -> Value name
+  deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-instance IsString Value where
-  fromString = Syntax.Abstract.valueLookup . fromString
+instance IsString name => IsString (Value name) where
+  fromString = ValueVarLookup . fromString
 
 -- | Name
-newtype Name = Name String
-  deriving stock (Eq, Ord, Show)
+newtype Name name = MkName {getName :: name}
+  deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
   deriving newtype (IsString)
 
-instance Syntax.Abstract.Name InitialSyntax Name where
+instance Syntax.Abstract.Name (InitialSyntax name) (Name name) where
   valueLookup = ValueVarLookup
 
 -- | Literal
@@ -119,17 +133,17 @@ data Literal where
   LitDouble :: {-# UNPACK #-} !Double -> Literal
   deriving stock (Eq, Ord, Show)
 
-instance Syntax.Abstract.Literal InitialSyntax Integer where
+instance (Show name, Ord name) => Syntax.Abstract.Literal (InitialSyntax name) Integer where
   valueLiteral = ValueLiteral . LitInteger
 
-instance Syntax.Abstract.Literal InitialSyntax Double where
+instance (Show name, Ord name) => Syntax.Abstract.Literal (InitialSyntax name) Double where
   valueLiteral = ValueLiteral . LitDouble
 
 -- Checks
 
-freeVariables :: Process -> Set Name
+freeVariables :: Ord name => Process name -> Set name
 freeVariables = \case
-  ProcSend name values -> Set.insert name $ foldMap valueFreeVars values
+  ProcSend (MkName name) values -> Set.insert name $ foldMap valueFreeVars values
   ProcLocalDef definition body ->
     let MkDefinitionVariables
           introducedNames
@@ -142,17 +156,17 @@ freeVariables = \case
     Set.union (freeVariables proc1) (freeVariables proc2)
   ProcInert -> Set.empty
  where
-  valueFreeVars :: Value -> Set Name
+  valueFreeVars :: Value name -> Set name
   valueFreeVars = \case
     ValueLiteral ls -> Set.empty
-    ValueVarLookup na -> Set.singleton na
+    ValueVarLookup (MkName na) -> Set.singleton na
 
-data DefinitionVariables = MkDefinitionVariables
-  { definitionIntroducedNames :: !(Set Name)
-  , definitionFreeNames :: !(Set Name)
+data DefinitionVariables name = MkDefinitionVariables
+  { definitionIntroducedNames :: !(Set name)
+  , definitionFreeNames :: !(Set name)
   }
 
-definitionVars :: Definition -> DefinitionVariables
+definitionVars :: Ord name => Definition name -> DefinitionVariables name
 definitionVars = \case
   DefReactionRule pattern body ->
     let MkPatternVariables{patternProcessNames, patternItemNames} = patternVariables pattern
@@ -173,15 +187,15 @@ definitionVars = \case
           )
   DefVoid -> MkDefinitionVariables Set.empty Set.empty
 
-data PatternVariables = MkPatternVariables
-  { patternProcessNames :: !(Set Name)
-  , patternItemNames :: !(Set Name)
-  , patternNamesDefinedMultipleTimes :: !(Set Name)
+data PatternVariables name = MkPatternVariables
+  { patternProcessNames :: !(Set name)
+  , patternItemNames :: !(Set name)
+  , patternNamesDefinedMultipleTimes :: !(Set name)
   }
 
-patternVariables :: Pattern -> PatternVariables
+patternVariables :: Ord name => Pattern name -> PatternVariables name
 patternVariables = \case
-  PatMessage processName messageItems ->
+  PatMessage (MkName processName) (coerce -> messageItems) ->
     let multiMessageItemNames = MultiSet.fromList messageItems
         messageItemNames = Set.fromList messageItems
         duplicatesInItemsNames =
@@ -191,7 +205,10 @@ patternVariables = \case
             <> if Set.member processName messageItemNames
               then Set.singleton processName
               else Set.empty
-     in MkPatternVariables (Set.singleton processName) messageItemNames duplicates
+     in MkPatternVariables
+          (Set.singleton processName)
+          messageItemNames
+          duplicates
   PatSynchronization patA patB ->
     let ( MkPatternVariables
             procNamesInA
