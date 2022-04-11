@@ -132,7 +132,7 @@ instance Syntax.Abstract.Name (InitialSyntax name) (Name name) where
 
 -- | Literal
 data Literal where
-  LitInteger :: {-# UNPACK #-} !Integer -> Literal
+  LitInteger :: !Integer -> Literal
   LitDouble :: {-# UNPACK #-} !Double -> Literal
   deriving stock (Eq, Ord, Show)
 

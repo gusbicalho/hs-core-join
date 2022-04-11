@@ -10,7 +10,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
 
-module Language.CoreJoin.RCHAM.TreeWalk where
+module Language.CoreJoin.RCHAM.TreeRewrite where
 
 import Control.Applicative qualified as Applicative
 import Control.Monad.Trans.Class qualified as Trans

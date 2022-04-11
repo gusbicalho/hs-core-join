@@ -16,7 +16,7 @@ library
   hs-source-dirs: lib
   exposed-modules:
     Language.CoreJoin
-    Language.CoreJoin.RCHAM.TreeWalk
+    Language.CoreJoin.RCHAM.TreeRewrite
     Language.CoreJoin.Syntax.Abstract
     Language.CoreJoin.Syntax.Initial
     Language.CoreJoin.Syntax.Sugar
