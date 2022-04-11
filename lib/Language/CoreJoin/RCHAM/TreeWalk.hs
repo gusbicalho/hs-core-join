@@ -47,7 +47,6 @@ rcham rawProcess = do
   whileM ((emptyChem ==) <$> getChem) do
     getChem
       >>= runStep
-        (pure ())
         [ str_null
         , str_par
         , str_top
@@ -55,6 +54,7 @@ rcham rawProcess = do
         , str_def
         , react
         ]
+        (halt "Deadlock!")
  where
   str_null chem = []
   str_par chem = []
@@ -62,11 +62,9 @@ rcham rawProcess = do
   str_and chem = []
   str_def chem = []
   react chem = []
-  deadlock :: RCHAM ()
-  deadlock = halt "Deadlock!"
 
-runStep :: result -> [input -> [result]] -> input -> result
-runStep onNoneMatch possibleActions input =
+runStep :: [input -> [f result]] -> f result -> input -> f result
+runStep possibleActions onNoneMatch input =
   case concatMap ($ input) possibleActions of
     [] -> onNoneMatch
     result : _ -> result
