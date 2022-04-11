@@ -66,7 +66,7 @@ P, Q, R ::=       processes
 class (proc ~ ProcessSyntax syntax) => Process syntax proc where
   send ::
     Foldable list =>
-    ValueSyntax syntax ->
+    NameSyntax syntax ->
     list (ValueSyntax syntax) ->
     proc
   localDef ::

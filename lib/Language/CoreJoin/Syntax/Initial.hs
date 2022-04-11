@@ -36,7 +36,7 @@ instance Syntax.Abstract.CoreJoinSyntax InitialSyntax where
 
 -- | Process
 data Process where
-  ProcSend :: !Value -> ![Value] -> Process
+  ProcSend :: !Name -> ![Value] -> Process
   ProcLocalDef :: !Definition -> !Process -> Process
   ProcParallel :: !Process -> !Process -> Process
   ProcInert :: Process
@@ -129,7 +129,7 @@ instance Syntax.Abstract.Literal InitialSyntax Double where
 
 freeVariables :: Process -> Set Name
 freeVariables = \case
-  ProcSend name values -> foldMap valueFreeVars (name : values)
+  ProcSend name values -> Set.insert name $ foldMap valueFreeVars values
   ProcLocalDef definition body ->
     let MkDefinitionVariables
           introducedNames
