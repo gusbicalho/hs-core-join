@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
@@ -9,15 +10,15 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE DeriveTraversable #-}
 
 module Language.CoreJoin.Syntax.Initial (
-  Process,
-  Definition,
-  Pattern,
-  Value,
-  Name,
+  Process (..),
+  Definition (..),
+  Pattern (..),
+  Value (..),
+  Name (..),
   freeVariables,
+  definedNames,
 ) where
 
 import Control.Applicative qualified as Applicative
@@ -165,6 +166,9 @@ data DefinitionVariables name = MkDefinitionVariables
   { definitionIntroducedNames :: !(Set name)
   , definitionFreeNames :: !(Set name)
   }
+
+definedNames :: Ord name => Definition name -> Set name
+definedNames = definitionIntroducedNames . definitionVars
 
 definitionVars :: Ord name => Definition name -> DefinitionVariables name
 definitionVars = \case
