@@ -107,7 +107,7 @@ infixr 5 |>
 {-# INLINE (|<<) #-}
 (|<<) ::
   Sugar syntax =>
-  Syntax.Abstract.NameSyntax syntax ->
+  Syntax.Abstract.ValueSyntax syntax ->
   [Syntax.Abstract.ValueSyntax syntax] ->
   Syntax.Abstract.ProcessSyntax syntax
 p |<< msg = Syntax.Abstract.send p msg

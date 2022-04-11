@@ -22,6 +22,7 @@ import Control.Monad.Trans.Writer.CPS (Writer, WriterT)
 import Control.Monad.Trans.Writer.CPS qualified as Writer
 import Data.DList (DList)
 import Data.DList qualified as DList
+import Data.Foldable qualified as F
 import Data.Function ((&))
 import Data.Functor ((<&>))
 import Data.Functor.Identity (Identity)
@@ -49,9 +50,20 @@ import Utils.Transformers qualified as Utils.Trans
 ([],Nothing)
 
 >>> eval $ S.def [ ["p" S.|>> [] ] S.|> [] ] []
-([],Just (MkExecutionError (ChemSol {processThreads = fromOccurList [], definitionThreads = fromOccurList [(DefReactionRule (PatMessage (MkName {getName = MkLocalName {nameId = 0, nameString = "p"}}) []) ProcInert,1)]}) "Deadlock!"))
+([],Nothing)
+
+>>> eval $ "print" S.|<< [S.litI 2]
+ProgressCancelledException
 
 -}
+
+ex :: Syntax.Initial.Process String
+ex =
+  S.def
+    []
+    [ "output" S.|<< [S.litI 2]
+    , "output" S.|<< [S.litI 3]
+    ]
 
 eval :: Syntax.Initial.Process String -> ([OutputItem], Maybe ExecutionError)
 eval =
@@ -69,9 +81,14 @@ eval =
 
 rcham :: Syntax.Initial.Process String -> RCHAM ()
 rcham rawProcess = do
-  let initialProcess = fmap (MkLocalName 0) rawProcess
+  let initialProcess = MkLocalName 0 <$> rawProcess
   addProcessThread initialProcess
-  whileM ((emptyChem /=) <$> getChem) do
+  F.for_
+    (Map.toList nativeDefinitions)
+    \(nativeName, (pattern, _)) ->
+      addDefinitionThread
+        (NativeDefinition nativeName (MkLocalName 0 <$> pattern))
+  whileM (not . MultiSet.null . processThreads <$> getChem) do
     getChem
       >>= runStep
         [ str_null
@@ -120,35 +137,74 @@ rcham rawProcess = do
           addProcessThread body
           addDefinitionThread (DefinitionAST def)
       _ -> Nothing
+  react :: ChemicalSolution -> [RCHAM ()]
   react ChemSol{definitionThreads, processThreads} =
-    definitionThreads & multiSetConcatMap \case
-      DefinitionAST (Syntax.Initial.DefReactionRule pattern body) ->
-        -- Actually this is incorrect, because it may take more than 1
-        -- Send to satisfy a Definition pattern
-        -- So really we need to search for 1 Send for each PatSync
-        processThreads & multiSetMapMaybeToList \case
-          p@(Syntax.Initial.ProcSend name args)
-            | satisfies pattern name args -> Just do
-              removeProcessThread p
-              addProcessThread (bindArgs body pattern args)
+    let sent =
+          processThreads & MultiSet.mapMaybe \case
+            p@(Syntax.Initial.ProcSend process args) -> Just (process, args, p)
+            _ -> Nothing
+     in definitionThreads & multiSetConcatMap \case
+          DefinitionAST (Syntax.Initial.DefReactionRule pattern body) ->
+            satisfying sent pattern <&> \(match, consumed, _) -> do
+              let bindArg = \case
+                    Syntax.Initial.ValueVarLookup name
+                      | Just value <- Map.lookup name match ->
+                        value
+                    v -> v
+              F.for_ consumed removeProcessThread
+              addProcessThread (Syntax.Initial.mapValues bindArg body)
+          NativeDefinition nativeName pattern ->
+            satisfying sent pattern <&> \(match, consumed, _) -> do
+              case Map.lookup nativeName nativeDefinitions of
+                Nothing -> halt $ "Unknown native process: " <> nativeName
+                Just (_, action) -> do
+                  F.for_ consumed removeProcessThread
+                  action (Map.mapKeys (fmap nameString) . fmap (fmap nameString) $ match)
+          _ -> []
+  satisfying consumable = \case
+    Syntax.Initial.PatMessage patProcess patMsg ->
+      consumable & multiSetMapMaybeToList \p@(sentProcess, sentMsg, wholeProcess) ->
+        case sentProcess of
+          Syntax.Initial.ValueVarLookup sentProcessName
+            | patProcess == sentProcessName && length patMsg == length sentMsg ->
+              Just
+                ( Map.fromList (zip patMsg sentMsg)
+                , MultiSet.singleton wholeProcess
+                , MultiSet.delete p consumable
+                )
           _ -> Nothing
-      _ -> []
-  satisfies pattern procName sentArgs = _TODO
-  bindArgs body pattern args = _TODO
+    Syntax.Initial.PatSynchronization pat1 pat2 -> do
+      (match1, consumed1, consumable) <- satisfying consumable pat1
+      (match2, consumed2, consumable) <- satisfying consumable pat2
+      pure (match1 <> match2, consumed1 <> consumed2, consumable)
   refreshDefinedNames def body = do
     let definedNames = Syntax.Initial.definedNames def
     replacements <- traverse freshName $ Map.fromSet nameString definedNames
     let replaceName oldName = Maybe.fromMaybe oldName (Map.lookup oldName replacements)
     pure (replaceName <$> def, replaceName <$> body)
 
-nativeDefinitions :: Map String (Syntax.Initial.Pattern LocalName, RCHAM ())
+nativeDefinitions ::
+  Map
+    String
+    ( Syntax.Initial.Pattern String
+    , Map
+        (Syntax.Initial.Name String)
+        (Syntax.Initial.Value String) ->
+      RCHAM ()
+    )
 nativeDefinitions =
   Map.fromList
     [
-      ( "print"
+      ( "output"
       ,
-        ( MkLocalName 0 <$> "print" S.|>> ["arg"]
-        , output (OutputI 1)
+        ( "output" S.|>> ["arg"]
+        , \args -> case Map.lookup "arg" args of
+            Nothing -> halt "Missing argument for output"
+            Just (Syntax.Initial.ValueVarLookup name) ->
+              halt $ "output sent a free variable: " <> show name
+            Just (Syntax.Initial.ValueLiteral lit) -> case lit of
+              Syntax.Initial.LitInteger i -> output (OutputI i)
+              Syntax.Initial.LitDouble d -> output (OutputD d)
         )
       )
     ]

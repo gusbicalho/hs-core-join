@@ -16,9 +16,11 @@ module Language.CoreJoin.Syntax.Initial (
   Definition (..),
   Pattern (..),
   Value (..),
+  Literal (..),
   Name (..),
   freeVariables,
   definedNames,
+  mapValues,
 ) where
 
 import Control.Applicative qualified as Applicative
@@ -48,7 +50,7 @@ instance
 
 -- | Process
 data Process name where
-  ProcSend :: !(Name name) -> ![Value name] -> Process name
+  ProcSend :: !(Value name) -> ![Value name] -> Process name
   ProcLocalDef :: !(Definition name) -> !(Process name) -> Process name
   ProcParallel :: !(Process name) -> !(Process name) -> Process name
   ProcInert :: Process name
@@ -140,11 +142,31 @@ instance (Show name, Ord name) => Syntax.Abstract.Literal (InitialSyntax name) I
 instance (Show name, Ord name) => Syntax.Abstract.Literal (InitialSyntax name) Double where
   valueLiteral = ValueLiteral . LitDouble
 
+-- Useful traversals
+
+mapValues :: (Value name -> Value name) -> Process name -> Process name
+mapValues f = goProcess
+ where
+  goProcess = \case
+    p@ProcInert -> p
+    ProcSend procVal argVals ->
+      ProcSend (f procVal) (f <$> argVals)
+    ProcLocalDef def body ->
+      ProcLocalDef (goDefinition def) (goProcess body)
+    ProcParallel p1 p2 ->
+      ProcParallel (goProcess p1) (goProcess p2)
+  goDefinition = \case
+    d@DefVoid -> d
+    DefComposition d1 d2 ->
+      DefComposition (goDefinition d1) (goDefinition d2)
+    DefReactionRule pattern body ->
+      DefReactionRule pattern (goProcess body)
+
 -- Checks
 
 freeVariables :: Ord name => Process name -> Set name
 freeVariables = \case
-  ProcSend (MkName name) values -> Set.insert name $ foldMap valueFreeVars values
+  ProcSend name values -> foldMap valueFreeVars (name : values)
   ProcLocalDef definition body ->
     let MkDefinitionVariables
           introducedNames
