@@ -69,7 +69,7 @@ ex1Initial :: Syntax.Initial.Process String
 ex1Initial = ex1 :: Syntax.Initial.Process String
 
 -- >>> Syntax.Initial.freeVariables ex1Initial
--- fromList [Name "print"]
+-- fromList ["output"]
 
 -- >>> TreeRewrite.eval ex1
 -- ([OutputI 1,OutputD 2.3],Nothing)

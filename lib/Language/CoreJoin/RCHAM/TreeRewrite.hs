@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingStrategies #-}
@@ -52,8 +51,8 @@ import Utils.Transformers qualified as Utils.Trans
 >>> eval $ S.def [ ["p" S.|>> [] ] S.|> [] ] []
 ([],Nothing)
 
->>> eval $ "print" S.|<< [S.litI 2]
-ProgressCancelledException
+>>> eval $ "output" S.|<< [S.litI 2]
+([OutputI 2],Nothing)
 
 -}
 
