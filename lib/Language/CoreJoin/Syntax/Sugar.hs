@@ -14,6 +14,9 @@
 module Language.CoreJoin.Syntax.Sugar (
   Sugar,
   def,
+  where_,
+  (?*),
+  (?-),
   (|>>),
   (|<<),
   (|>),
@@ -90,6 +93,29 @@ def defs procs =
   Syntax.Abstract.localDef
     (mconcatVia @(DefinitionMonoid syntax) defs)
     (mconcatVia @(ProcessMonoid syntax) procs)
+
+where_ ::
+  Sugar syntax =>
+  [Syntax.Abstract.ProcessSyntax syntax] ->
+  [Syntax.Abstract.DefinitionSyntax syntax] ->
+  Syntax.Abstract.ProcessSyntax syntax
+where_ = flip def
+
+-- | Synonym with `where_`
+(?*) ::
+  Sugar syntax =>
+  [Syntax.Abstract.ProcessSyntax syntax] ->
+  [Syntax.Abstract.DefinitionSyntax syntax] ->
+  Syntax.Abstract.ProcessSyntax syntax
+(?*) = where_
+
+(?-) ::
+  Sugar syntax =>
+  Syntax.Abstract.ProcessSyntax syntax ->
+  Syntax.Abstract.DefinitionSyntax syntax ->
+  Syntax.Abstract.ProcessSyntax syntax
+oneProc ?- oneDef = def [oneDef] [oneProc]
+infixr 4 ?-
 
 {-# INLINE (|>) #-}
 (|>) ::
