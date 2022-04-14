@@ -1,12 +1,7 @@
-{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -25,13 +20,16 @@ module Language.CoreJoin.Syntax.Initial (
 
 import Control.Applicative qualified as Applicative
 import Data.Coerce (coerce)
+import Data.Data (Proxy (Proxy))
 import Data.Foldable qualified as F
 import Data.List.NonEmpty (NonEmpty ((:|)))
 import Data.MultiSet qualified as MultiSet
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.String (IsString (..))
+import GHC.OverloadedLabels (IsLabel (..))
 import GHC.Stack (HasCallStack)
+import GHC.TypeLits (KnownSymbol, symbolVal)
 import Language.CoreJoin.Syntax.Abstract qualified as Syntax.Abstract
 
 data InitialSyntax name
@@ -122,10 +120,22 @@ data Value name where
 instance IsString name => IsString (Value name) where
   fromString = ValueVarLookup . fromString
 
+instance
+  (IsLabel label (Name name)) =>
+  IsLabel label (Value name)
+  where
+  fromLabel = ValueVarLookup $ fromLabel @label
+
 -- | Name
 newtype Name name = MkName {getName :: name}
   deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
   deriving newtype (IsString)
+
+instance
+  (IsString name, KnownSymbol label) =>
+  IsLabel label (Name name)
+  where
+  fromLabel = MkName . fromString . symbolVal $ Proxy @label
 
 instance Syntax.Abstract.Name (InitialSyntax name) (Name name) where
   valueLookup = ValueVarLookup

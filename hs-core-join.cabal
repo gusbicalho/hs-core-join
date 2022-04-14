@@ -10,9 +10,7 @@ author:             Gustavo Bicalho
 maintainer:         gusbicalho@gmail.com
 
 library
-  default-language: Haskell2010
-  default-extensions:
-    ImportQualifiedPost
+  default-language: GHC2021
   hs-source-dirs: lib
   exposed-modules:
     Language.CoreJoin
@@ -23,7 +21,7 @@ library
   other-modules:
     Utils.Transformers
   build-depends:
-    base ^>=4.14.3.0,
+    base ^>=4.16.0.0,
     containers,
     dlist,
     multiset,
@@ -31,11 +29,11 @@ library
 
 test-suite hs-core-join-test
   type: exitcode-stdio-1.0
-  default-language: Haskell2010
+  default-language: GHC2021
   hs-source-dirs: test
   main-is: Spec.hs
   build-tool-depends:
     hspec-discover:hspec-discover == 2.*
   build-depends:
-    base ^>=4.14.3.0,
+    base ^>=4.16.0.0,
     hspec

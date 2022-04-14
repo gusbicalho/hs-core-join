@@ -1,13 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
 
@@ -43,21 +38,35 @@ import Data.Kind (Constraint)
 import Data.List.NonEmpty (NonEmpty ((:|)))
 import Data.Semigroup (Semigroup (..))
 import Data.String (IsString)
+import GHC.OverloadedLabels (IsLabel)
 import GHC.Stack (HasCallStack)
-import GHC.TypeLits (ErrorMessage (ShowType, Text, (:$$:)), TypeError)
+import GHC.TypeLits (KnownSymbol)
 import Language.CoreJoin.Syntax.Abstract qualified as Syntax.Abstract
 
 class
   ( Syntax.Abstract.CoreJoinSyntax syntax
-  , IsString (Syntax.Abstract.NameSyntax syntax)
-  , IsString (Syntax.Abstract.ValueSyntax syntax)
+  , IsLabel label (Syntax.Abstract.NameSyntax syntax)
+  , IsLabel label (Syntax.Abstract.ValueSyntax syntax)
+  ) =>
+  Labelable syntax label
+
+instance
+  ( KnownSymbol label
+  , Syntax.Abstract.CoreJoinSyntax syntax
+  , IsLabel label (Syntax.Abstract.NameSyntax syntax)
+  , IsLabel label (Syntax.Abstract.ValueSyntax syntax)
+  ) =>
+  Labelable syntax label
+
+class
+  ( Syntax.Abstract.CoreJoinSyntax syntax
+  , forall label. KnownSymbol label => Labelable syntax label
   ) =>
   Sugar syntax
 
 instance
   ( Syntax.Abstract.CoreJoinSyntax syntax
-  , IsString (Syntax.Abstract.NameSyntax syntax)
-  , IsString (Syntax.Abstract.ValueSyntax syntax)
+  , forall label. KnownSymbol label => Labelable syntax label
   ) =>
   Sugar syntax
 
@@ -68,8 +77,7 @@ data Hidden
 instance
   {-# OVERLAPPING #-}
   ( Syntax.Abstract.CoreJoinSyntax Hidden
-  , IsString (Syntax.Abstract.NameSyntax Hidden)
-  , IsString (Syntax.Abstract.ValueSyntax Hidden)
+  , forall label. Labelable Hidden label
   ) =>
   Sugar Hidden
 
