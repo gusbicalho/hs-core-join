@@ -68,29 +68,34 @@ eval seed =
     (DList.toList output, either Just (const Nothing) result)
 
 rcham :: Random.RandomGen g => Syntax.Initial.Process String -> Random.StateGenM g -> StateT g RCHAM ()
-rcham rawProcess g = do
-  let initialProcess = MkLocalName 0 <$> rawProcess
-  Trans.lift do
+rcham rawProcess g =
+  setup *> run
+ where
+  setup = Trans.lift do
+    let initialProcess = MkLocalName 0 <$> rawProcess
     addProcessThread initialProcess
     F.for_
       (Map.toList nativeDefinitions)
       \(nativeName, (pattern, _)) ->
         addDefinitionThread
           (NativeDefinition nativeName (MkLocalName 0 <$> pattern))
-  forever $
-    Trans.lift getChem
-      >>= runStep
-        pick
-        [ str_null
-        , str_par
-        , str_top
-        , str_and
-        , str_def
-        , send
-        , react
-        ]
-        (halt "Stuck!")
- where
+  run = do
+    chem <- Trans.lift getChem
+    let step =
+          pickStep
+            pick
+            [ str_null
+            , str_par
+            , str_top
+            , str_and
+            , str_def
+            , send
+            , react
+            ]
+            chem
+    case step of
+      Nothing -> pure ()
+      Just step -> step *> run
   pick possibilities = do
     let count = length possibilities
     selected <- Random.uniformRM (0, count - 1) g
@@ -220,17 +225,15 @@ multiSetConcatMap f =
     . concatMap (\(a, occur) -> replicate occur (f a))
     . MultiSet.toOccurList
 
-runStep ::
-  (Trans.MonadTrans t, Monad m) =>
+pickStep ::
   (NonEmpty (m result) -> t m result) ->
   [input -> [m result]] ->
-  m result ->
   input ->
-  t m result
-runStep pick possibleActions onNoneMatch input =
+  Maybe (t m result)
+pickStep pick possibleActions input =
   case concatMap ($ input) possibleActions of
-    [] -> Trans.lift onNoneMatch
-    result : more -> pick (result :| more)
+    [] -> Nothing
+    result : more -> Just $ pick (result :| more)
 
 whileM :: Monad m => m Bool -> m a -> m ()
 whileM condM body =
