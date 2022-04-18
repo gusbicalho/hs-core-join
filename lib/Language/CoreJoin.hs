@@ -21,6 +21,8 @@ import Data.String (IsString (fromString))
 import GHC.Stack (HasCallStack)
 
 import Language.CoreJoin.RCHAM.TreeRewrite qualified as TreeRewrite
+import Language.CoreJoin.RCHAM.TreeRewriteWithMsgPool qualified as TreeRewriteWithMsgPool
+import Language.CoreJoin.RCHAM.TreeRewriteWithRandom qualified as TreeRewriteWithRandom
 import Language.CoreJoin.Syntax.Initial qualified as Syntax.Initial
 import Language.CoreJoin.Syntax.Sugar (
   def,
@@ -159,5 +161,22 @@ ex1Initial = ex1 :: Syntax.Initial.Process String
 -- >>> Syntax.Initial.freeVariables ex1Initial
 -- fromList ["output"]
 
--- >>> fst $ TreeRewrite.eval ex1
--- [OutputI 1,OutputD 2.3,OutputI 10,OutputI 20]
+{-
+TreeRewrite and TreeRewriteWithMsgPool are deterministic
+
+>>> fst $ TreeRewrite.eval ex1
+[OutputI 1,OutputD 2.3,OutputI 10,OutputI 20]
+
+>>> fst $ TreeRewriteWithMsgPool.eval ex1
+[OutputI 1,OutputD 2.3,OutputI 10,OutputI 20]
+
+
+See how the output can be different if we add randomness!
+There's a race between the first atom read and the write-and-read
+
+>>> fst $ TreeRewriteWithRandom.eval 0 ex1
+[OutputD 2.3,OutputI 1,OutputI 20,OutputI 20]
+
+>>> fst $ TreeRewriteWithRandom.eval 3 ex1
+[OutputI 1,OutputD 2.3,OutputI 10,OutputI 20]
+-}

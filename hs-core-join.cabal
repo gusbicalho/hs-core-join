@@ -17,16 +17,19 @@ library
   exposed-modules:
     Language.CoreJoin
     Language.CoreJoin.RCHAM.TreeRewrite
+    Language.CoreJoin.RCHAM.TreeRewriteWithMsgPool
+    Language.CoreJoin.RCHAM.TreeRewriteWithRandom
     Language.CoreJoin.Syntax.Abstract
     Language.CoreJoin.Syntax.Initial
     Language.CoreJoin.Syntax.Sugar
   other-modules:
     Utils.Transformers
   build-depends:
-    base ^>=4.14.3.0,
+    base >=4.14.3.0,
     containers,
     dlist,
     multiset,
+    random,
     transformers
 
 test-suite hs-core-join-test
