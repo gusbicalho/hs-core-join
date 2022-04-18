@@ -44,22 +44,6 @@ import Language.CoreJoin.Syntax.Sugar qualified as S
 import System.Random.Stateful qualified as Random
 import Utils.Transformers qualified as Utils.Trans
 
-{-
-
->>> eval $ S.inert
-([],Nothing)
-
->>> eval $ S.def [] []
-([],Nothing)
-
->>> eval $ S.def [ ["p" S.|>> [] ] S.|> [] ] []
-([],Nothing)
-
->>> eval $ "output" S.|<< [S.litI 2]
-([OutputI 2],Nothing)
-
--}
-
 ex :: Syntax.Initial.Process String
 ex =
   S.def
