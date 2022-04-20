@@ -67,103 +67,76 @@ rcham initialProcess g =
   setup *> run
  where
   setup = Trans.lift do
-    env <-
-      MkEnv . Map.unions <$> for (Map.toList nativeDefinitions) \(nativeName, (pattern, action)) -> do
-        siteId <- freshDefinitionSiteId
-        let newChannels = Syntax.Initial.matchedChannelNames pattern
-        addDefinitionSite
-          siteId
-          $ MkDefinitionSite
-            { siteDeliveredMessages = MultiSet.empty
-            , siteDefinition = Left $ MkNativeDefinition nativeName pattern
-            }
-        pure $ Map.fromSet (RTChannelReference . MkChannelReference siteId) newChannels
+    env <- MkEnv . Map.map RTChannelReference <$> spawnNativeDefinitionSites
     addProcessThread (MkProcessThread env initialProcess)
   run = do
     chem <- Trans.lift getChem
     let step =
           pickStep
             pick
-            [ str_null
-            , str_par
-            , str_def
-            , send
+            [ stepProcess
             , deliver
             , react
             ]
             chem
     case step of
       Nothing -> pure ()
-      Just step -> do
-        step
-        run
+      Just step -> step *> run
   pick possibilities = do
     let count = length possibilities
     selectedIndex <- Random.uniformRM (0, count - 1) g
     Trans.lift $ possibilities NonEmpty.!! selectedIndex
-  str_null ChemSol{processThreads} =
-    processThreads & multiSetMapMaybeToList \case
-      p@(MkProcessThread _ Syntax.Initial.ProcInert) -> Just do
-        removeProcessThread p
-      _ -> Nothing
-  str_par ChemSol{processThreads} =
-    processThreads & multiSetMapMaybeToList \case
-      p@(MkProcessThread env (Syntax.Initial.ProcParallel p1 p2)) -> Just do
-        removeProcessThread p
-        addProcessThread (MkProcessThread env p1)
-        addProcessThread (MkProcessThread env p2)
-      _ -> Nothing
-  str_def ChemSol{processThreads} =
-    processThreads & multiSetMapMaybeToList \case
-      p@(MkProcessThread env (Syntax.Initial.ProcLocalDef def body)) ->
-        Just do
-          removeProcessThread p
-          siteId <- freshDefinitionSiteId
-          let newChannels = Syntax.Initial.definedNames def
-          let newEnv = MkEnv $ Map.union (Map.fromSet (RTChannelReference . MkChannelReference siteId) newChannels) (getEnv env)
-          addDefinitionSite
-            siteId
-            MkDefinitionSite
-              { siteDeliveredMessages = mempty
-              , siteDefinition =
-                  Right $
-                    MkIntepretedDefinition
-                      { definitionEnv = newEnv
-                      , interpretedDefinition = def
-                      }
-              }
-          addProcessThread (MkProcessThread newEnv body)
-      _ -> Nothing
-  send :: ChemicalSolution -> [RCHAM ()]
-  send ChemSol{processThreads, sentMessages} =
-    processThreads & multiSetMapMaybeToList \case
-      p@(MkProcessThread env (Syntax.Initial.ProcSend process args)) ->
-        Just do
-          let resolve = \case
-                Syntax.Initial.ValueLiteral lit ->
-                  pure . RTPrimitive $ case lit of
-                    Syntax.Initial.LitInteger n -> PrimInteger n
-                    Syntax.Initial.LitDouble x -> PrimDouble x
-                Syntax.Initial.ValueVarLookup (Syntax.Initial.MkName name) ->
-                  case Map.lookup name (getEnv env) of
-                    Nothing -> halt $ "Name not defined: " <> name
-                    Just val -> pure val
-          reference <-
-            resolve process >>= \case
-              (RTChannelReference reference) -> pure reference
-              other -> halt $ "Invalid send: expected channel, got " <> show other
-          argVals <- traverse resolve args
-          addSentMessage (MkSentMessage reference argVals)
-          removeProcessThread p
-      _ -> Nothing
-  deliver :: ChemicalSolution -> [RCHAM ()]
+  stepProcess ChemSol{processThreads} =
+    processThreads & multiSetMapMaybeToList \thread@(MkProcessThread env process) -> Just do
+      removeProcessThread thread
+      case process of
+        Syntax.Initial.ProcInert -> do
+          pure ()
+        Syntax.Initial.ProcParallel p1 p2 -> do
+          addProcessThread (MkProcessThread env p1)
+          addProcessThread (MkProcessThread env p2)
+        Syntax.Initial.ProcLocalDef def body -> do
+          runLocalDef env def body
+        Syntax.Initial.ProcSend channel args -> do
+          runSendMessage env channel args
+  runLocalDef env def body = do
+    siteId <- freshDefinitionSiteId
+    let newChannels = Syntax.Initial.definedNames def
+    let newEnv = MkEnv $ Map.union (Map.fromSet (RTChannelReference . MkChannelReference siteId) newChannels) (getEnv env)
+    addDefinitionSite
+      siteId
+      MkDefinitionSite
+        { siteDeliveredMessages = mempty
+        , siteDefinition =
+            Right $
+              MkIntepretedDefinition
+                { definitionEnv = newEnv
+                , interpretedDefinition = def
+                }
+        }
+    addProcessThread (MkProcessThread newEnv body)
+  runSendMessage env channel args = do
+    let resolve = \case
+          Syntax.Initial.ValueLiteral lit ->
+            pure . RTPrimitive $ case lit of
+              Syntax.Initial.LitInteger n -> PrimInteger n
+              Syntax.Initial.LitDouble x -> PrimDouble x
+          Syntax.Initial.ValueVarLookup (Syntax.Initial.MkName name) ->
+            case Map.lookup name (getEnv env) of
+              Nothing -> halt $ "Name not defined: " <> name
+              Just val -> pure val
+    reference <-
+      resolve channel >>= \case
+        (RTChannelReference reference) -> pure reference
+        other -> halt $ "Invalid send: expected channel, got " <> show other
+    argVals <- traverse resolve args
+    addSentMessage (MkSentMessage reference argVals)
   deliver ChemSol{sentMessages, definitionSites} =
     definitionSites & concatMapWithKeyToList \siteId def@MkDefinitionSite{siteDeliveredMessages} ->
       let deliverable = Maybe.fromMaybe mempty $ Map.lookup siteId sentMessages
        in deliverable & multiSetMapMaybeToList \msg -> Just do
             removeSentMessage msg
             addDefinitionSite siteId def{siteDeliveredMessages = MultiSet.insert msg siteDeliveredMessages}
-  react :: ChemicalSolution -> [RCHAM ()]
   react ChemSol{definitionSites, sentMessages} =
     definitionSites & concatMapWithKeyToList \definitionId def@MkDefinitionSite{siteDeliveredMessages, siteDefinition} ->
       case siteDefinition of
@@ -200,25 +173,6 @@ rcham initialProcess g =
       (match2, consumed2, consumable) <- satisfying consumable pat2
       pure (match1 <> match2, consumed1 <> consumed2, consumable)
 
-nativeDefinitions ::
-  Map
-    String
-    ( Syntax.Initial.Pattern String
-    , Map String RTValue -> RCHAM ()
-    )
-nativeDefinitions =
-  Map.fromList
-    [
-      ( "output"
-      ,
-        ( "output" S.|>> ["arg"]
-        , \args -> case Map.lookup "arg" args of
-            Nothing -> halt "Missing argument for output"
-            Just val -> output val
-        )
-      )
-    ]
-
 pickStep ::
   (NonEmpty (m result) -> t m result) ->
   [input -> [m result]] ->
@@ -248,6 +202,40 @@ mapMaybeWithKeyToList f =
 concatMapWithKeyToList :: (k -> a -> [b]) -> Map k a -> [b]
 concatMapWithKeyToList f =
   concatMap (uncurry f) . Map.toList
+
+-- Native definitions
+
+nativeDefinitions ::
+  Map
+    String
+    ( Syntax.Initial.Pattern String
+    , Map String RTValue -> RCHAM ()
+    )
+nativeDefinitions =
+  Map.fromList
+    [
+      ( "output"
+      ,
+        ( "output" S.|>> ["arg"]
+        , \args -> case Map.lookup "arg" args of
+            Nothing -> halt "Missing argument for output"
+            Just val -> output val
+        )
+      )
+    ]
+
+spawnNativeDefinitionSites :: RCHAM (Map String ChannelReference)
+spawnNativeDefinitionSites =
+  Map.unions <$> for (Map.toList nativeDefinitions) \(nativeName, (pattern, action)) -> do
+    siteId <- freshDefinitionSiteId
+    let newChannels = Syntax.Initial.matchedChannelNames pattern
+    addDefinitionSite
+      siteId
+      $ MkDefinitionSite
+        { siteDeliveredMessages = MultiSet.empty
+        , siteDefinition = Left $ MkNativeDefinition nativeName pattern
+        }
+    pure $ Map.fromSet (MkChannelReference siteId) newChannels
 
 -- Core types
 

@@ -181,13 +181,16 @@ There's a race between the first atom read and the write-and-read
 >>> TreeRewriteWithRandom.eval 3 ex1
 ([OutputI 1,OutputD 2.3,OutputI 10,OutputI 20],Nothing)
 
->>> ExplicitProcesses.eval 3 ex1
+>>> ExplicitProcesses.eval 0 ex1
 ([RTPrimitive (PrimInteger 1),RTPrimitive (PrimDouble 2.3),RTPrimitive (PrimInteger 10),RTPrimitive (PrimInteger 20)],Nothing)
 
->>> ExplicitProcesses.eval 4 ex1
+>>> ExplicitProcesses.eval 5 ex1
 ([RTPrimitive (PrimDouble 2.3),RTPrimitive (PrimInteger 1),RTPrimitive (PrimInteger 10),RTPrimitive (PrimInteger 20)],Nothing)
 
->>> ExplicitProcesses.eval 10 ex1
+>>> ExplicitProcesses.eval 72 ex1
 ([RTPrimitive (PrimInteger 1),RTPrimitive (PrimDouble 2.3),RTPrimitive (PrimInteger 20),RTPrimitive (PrimInteger 20)],Nothing)
+
+>>> ExplicitProcesses.eval 81 ex1
+([RTPrimitive (PrimDouble 2.3),RTPrimitive (PrimInteger 1),RTPrimitive (PrimInteger 20),RTPrimitive (PrimInteger 20)],Nothing)
 
 -}
