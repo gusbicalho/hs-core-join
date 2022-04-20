@@ -175,19 +175,19 @@ TreeRewrite and TreeRewriteWithMsgPool are deterministic
 See how the output can be different if we add randomness!
 There's a race between the first atom read and the write-and-read
 
->>> fst $ TreeRewriteWithRandom.eval 0 ex1
-[OutputD 2.3,OutputI 1,OutputI 20,OutputI 20]
+>>> TreeRewriteWithRandom.eval 0 ex1
+([OutputD 2.3,OutputI 1,OutputI 20,OutputI 20],Nothing)
 
->>> fst $ TreeRewriteWithRandom.eval 3 ex1
-[OutputI 1,OutputD 2.3,OutputI 10,OutputI 20]
+>>> TreeRewriteWithRandom.eval 3 ex1
+([OutputI 1,OutputD 2.3,OutputI 10,OutputI 20],Nothing)
 
->>> fst $ ExplicitProcesses.eval 3 ex1
-[RTPrimitive (PrimInteger 1),RTPrimitive (PrimDouble 2.3),RTPrimitive (PrimInteger 10),RTPrimitive (PrimInteger 20)]
+>>> ExplicitProcesses.eval 3 ex1
+([RTPrimitive (PrimInteger 1),RTPrimitive (PrimDouble 2.3),RTPrimitive (PrimInteger 10),RTPrimitive (PrimInteger 20)],Nothing)
 
->>> fst $ ExplicitProcesses.eval 4 ex1
-[RTPrimitive (PrimDouble 2.3),RTPrimitive (PrimInteger 1),RTPrimitive (PrimInteger 10),RTPrimitive (PrimInteger 20)]
+>>> ExplicitProcesses.eval 4 ex1
+([RTPrimitive (PrimDouble 2.3),RTPrimitive (PrimInteger 1),RTPrimitive (PrimInteger 10),RTPrimitive (PrimInteger 20)],Nothing)
 
->>> fst $ ExplicitProcesses.eval 10 ex1
-[RTPrimitive (PrimInteger 1),RTPrimitive (PrimDouble 2.3),RTPrimitive (PrimInteger 20),RTPrimitive (PrimInteger 20)]
+>>> ExplicitProcesses.eval 10 ex1
+([RTPrimitive (PrimInteger 1),RTPrimitive (PrimDouble 2.3),RTPrimitive (PrimInteger 20),RTPrimitive (PrimInteger 20)],Nothing)
 
 -}
