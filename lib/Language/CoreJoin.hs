@@ -23,6 +23,7 @@ import GHC.Stack (HasCallStack)
 import Language.CoreJoin.RCHAM.TreeRewrite qualified as TreeRewrite
 import Language.CoreJoin.RCHAM.TreeRewriteWithMsgPool qualified as TreeRewriteWithMsgPool
 import Language.CoreJoin.RCHAM.TreeRewriteWithRandom qualified as TreeRewriteWithRandom
+import Language.CoreJoin.RCHAM.ExplicitProcesses qualified as ExplicitProcesses
 import Language.CoreJoin.Syntax.Initial qualified as Syntax.Initial
 import Language.CoreJoin.Syntax.Sugar (
   def,
@@ -179,4 +180,14 @@ There's a race between the first atom read and the write-and-read
 
 >>> fst $ TreeRewriteWithRandom.eval 3 ex1
 [OutputI 1,OutputD 2.3,OutputI 10,OutputI 20]
+
+>>> fst $ ExplicitProcesses.eval 3 ex1
+[RTPrimitive (PrimInteger 1),RTPrimitive (PrimDouble 2.3),RTPrimitive (PrimInteger 10),RTPrimitive (PrimInteger 20)]
+
+>>> fst $ ExplicitProcesses.eval 4 ex1
+[RTPrimitive (PrimDouble 2.3),RTPrimitive (PrimInteger 1),RTPrimitive (PrimInteger 10),RTPrimitive (PrimInteger 20)]
+
+>>> fst $ ExplicitProcesses.eval 10 ex1
+[RTPrimitive (PrimInteger 1),RTPrimitive (PrimDouble 2.3),RTPrimitive (PrimInteger 20),RTPrimitive (PrimInteger 20)]
+
 -}

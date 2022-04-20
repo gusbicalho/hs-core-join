@@ -16,6 +16,7 @@ library
   hs-source-dirs: lib
   exposed-modules:
     Language.CoreJoin
+    Language.CoreJoin.RCHAM.ExplicitProcesses
     Language.CoreJoin.RCHAM.TreeRewrite
     Language.CoreJoin.RCHAM.TreeRewriteWithMsgPool
     Language.CoreJoin.RCHAM.TreeRewriteWithRandom

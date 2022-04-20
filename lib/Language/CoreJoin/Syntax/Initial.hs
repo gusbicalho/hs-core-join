@@ -20,6 +20,7 @@ module Language.CoreJoin.Syntax.Initial (
   Name (..),
   freeVariables,
   definedNames,
+  matchedChannelNames,
   mapValues,
 ) where
 
@@ -191,6 +192,9 @@ data DefinitionVariables name = MkDefinitionVariables
 
 definedNames :: Ord name => Definition name -> Set name
 definedNames = definitionIntroducedNames . definitionVars
+
+matchedChannelNames :: Ord name => Pattern name -> Set name
+matchedChannelNames = patternProcessNames . patternVariables
 
 definitionVars :: Ord name => Definition name -> DefinitionVariables name
 definitionVars = \case
