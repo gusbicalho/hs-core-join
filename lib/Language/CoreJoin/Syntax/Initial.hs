@@ -132,8 +132,8 @@ instance
    where
     checkDuplicates :: HasCallStack => Pattern name -> Pattern name
     checkDuplicates fullPat =
-      case patternVariables fullPat of
-        MkPatternVariables{patternNamesDefinedMultipleTimes}
+      case patternAnalysis fullPat of
+        MkPatternAnalysis{patternNamesDefinedMultipleTimes}
           | null patternNamesDefinedMultipleTimes -> fullPat
           | otherwise ->
             error $
@@ -222,12 +222,12 @@ definedNames :: Ord name => Definition name -> Set name
 definedNames = definitionIntroducedNames . definitionVars
 
 matchedChannelNames :: Ord name => Pattern name -> Set name
-matchedChannelNames = patternProcessNames . patternVariables
+matchedChannelNames = patternProcessNames . patternVariables . patternAnalysis
 
 definitionVars :: Ord name => Definition name -> DefinitionVariables name
 definitionVars = \case
   MkDefReactionRule pat body ->
-    let MkPatternVariables{patternProcessNames, patternItemNames} = patternVariables pat
+    let MkPatternVariables{patternProcessNames, patternItemNames} = patternVariables (patternAnalysis pat)
         freeVarsInBody = freeVariables body
      in MkDefinitionVariables
           patternProcessNames
@@ -248,11 +248,16 @@ definitionVars = \case
 data PatternVariables name = MkPatternVariables
   { patternProcessNames :: !(Set name)
   , patternItemNames :: !(Set name)
+  }
+  deriving stock (Eq, Ord, Show, Foldable)
+
+data PatternAnalysis name = MkPatternAnalysis
+  { patternVariables :: PatternVariables name
   , patternNamesDefinedMultipleTimes :: !(Set name)
   }
 
-patternVariables :: Ord name => Pattern name -> PatternVariables name
-patternVariables = \case
+patternAnalysis :: Ord name => Pattern name -> PatternAnalysis name
+patternAnalysis = \case
   MkPatMessage (MkName processName) (coerce -> messageItems) ->
     let multiMessageItemNames = MultiSet.fromList messageItems
         messageItemNames = Set.fromList messageItems
@@ -263,21 +268,31 @@ patternVariables = \case
             <> if Set.member processName messageItemNames
               then Set.singleton processName
               else Set.empty
-     in MkPatternVariables
-          (Set.singleton processName)
-          messageItemNames
-          duplicates
+     in MkPatternAnalysis
+          { patternVariables =
+              MkPatternVariables
+                { patternProcessNames = Set.singleton processName
+                , patternItemNames = messageItemNames
+                }
+          , patternNamesDefinedMultipleTimes = duplicates
+          }
   MkPatSynchronization patA patB ->
-    let ( MkPatternVariables
-            procNamesInA
-            messageItemNamesInA
-            patternNamesDefinedMultipleTimesA
-          ) = patternVariables patA
-        ( MkPatternVariables
-            procNamesInB
-            messageItemNamesInB
-            patternNamesDefinedMultipleTimesB
-          ) = patternVariables patB
+    let MkPatternAnalysis
+          { patternVariables =
+            MkPatternVariables
+              { patternProcessNames = procNamesInA
+              , patternItemNames = messageItemNamesInA
+              }
+          , patternNamesDefinedMultipleTimes = patternNamesDefinedMultipleTimesA
+          } = patternAnalysis patA
+        MkPatternAnalysis
+          { patternVariables =
+            MkPatternVariables
+              { patternProcessNames = procNamesInB
+              , patternItemNames = messageItemNamesInB
+              }
+          , patternNamesDefinedMultipleTimes = patternNamesDefinedMultipleTimesB
+          } = patternAnalysis patB
         patternsDefinedMultipleTimes =
           patternNamesDefinedMultipleTimesA
             <> patternNamesDefinedMultipleTimesB
@@ -285,7 +300,11 @@ patternVariables = \case
             <> Set.intersection procNamesInA messageItemNamesInB
             <> Set.intersection procNamesInB messageItemNamesInA
             <> Set.intersection messageItemNamesInA messageItemNamesInB
-     in MkPatternVariables
-          (procNamesInA <> procNamesInB)
-          (messageItemNamesInA <> messageItemNamesInB)
-          patternsDefinedMultipleTimes
+     in MkPatternAnalysis
+          { patternVariables =
+              MkPatternVariables
+                { patternProcessNames = procNamesInA <> procNamesInB
+                , patternItemNames = messageItemNamesInA <> messageItemNamesInB
+                }
+          , patternNamesDefinedMultipleTimes = patternsDefinedMultipleTimes
+          }

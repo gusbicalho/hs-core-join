@@ -48,14 +48,14 @@ import GHC.TypeLits (ErrorMessage (ShowType, Text, (:$$:)), TypeError)
 import Language.CoreJoin.Syntax.Abstract qualified as Syntax.Abstract
 
 class
-  ( Syntax.Abstract.CoreJoinSyntax syntax
+  ( Syntax.Abstract.BuildableJoinSyntax syntax
   , IsString (Syntax.Abstract.NameSyntax syntax)
   , IsString (Syntax.Abstract.ValueSyntax syntax)
   ) =>
   Sugar syntax
 
 instance
-  ( Syntax.Abstract.CoreJoinSyntax syntax
+  ( Syntax.Abstract.BuildableJoinSyntax syntax
   , IsString (Syntax.Abstract.NameSyntax syntax)
   , IsString (Syntax.Abstract.ValueSyntax syntax)
   ) =>
@@ -67,7 +67,7 @@ instance
 data Hidden
 instance
   {-# OVERLAPPING #-}
-  ( Syntax.Abstract.CoreJoinSyntax Hidden
+  ( Syntax.Abstract.BuildableJoinSyntax Hidden
   , IsString (Syntax.Abstract.NameSyntax Hidden)
   , IsString (Syntax.Abstract.ValueSyntax Hidden)
   ) =>

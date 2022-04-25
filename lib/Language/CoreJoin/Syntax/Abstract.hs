@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
@@ -11,6 +12,7 @@
 
 module Language.CoreJoin.Syntax.Abstract (
   CoreJoinSyntax (..),
+  BuildableJoinSyntax (..),
   Process (..),
   Definition (..),
   Pattern (..),
@@ -42,19 +44,30 @@ J ::=             join patterns
   || J | J'       synchronization
 -}
 
-class
-  ( Process syntax (ProcessSyntax syntax)
-  , Definition syntax (DefinitionSyntax syntax)
-  , Pattern syntax (PatternSyntax syntax)
-  , Name syntax (NameSyntax syntax)
-  ) =>
-  CoreJoinSyntax syntax
-  where
+class CoreJoinSyntax syntax where
   type ProcessSyntax syntax = proc | proc -> syntax
   type DefinitionSyntax syntax = def | def -> syntax
   type PatternSyntax syntax = pat | pat -> syntax
   type ValueSyntax syntax = value | value -> syntax
   type NameSyntax syntax = name | name -> syntax
+
+class
+  ( CoreJoinSyntax syntax
+  , Process syntax (ProcessSyntax syntax)
+  , Definition syntax (DefinitionSyntax syntax)
+  , Pattern syntax (PatternSyntax syntax)
+  , Name syntax (NameSyntax syntax)
+  ) =>
+  BuildableJoinSyntax syntax
+
+instance
+  ( CoreJoinSyntax syntax
+  , Process syntax (ProcessSyntax syntax)
+  , Definition syntax (DefinitionSyntax syntax)
+  , Pattern syntax (PatternSyntax syntax)
+  , Name syntax (NameSyntax syntax)
+  ) =>
+  BuildableJoinSyntax syntax
 
 {-
 P, Q, R ::=       processes
