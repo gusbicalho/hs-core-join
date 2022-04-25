@@ -184,13 +184,13 @@ There's a race between the first atom read and the write-and-read
 >>> ExplicitProcesses.eval 0 ex1
 ([RTPrimitive (PrimInteger 1),RTPrimitive (PrimDouble 2.3),RTPrimitive (PrimInteger 10),RTPrimitive (PrimInteger 20)],Nothing)
 
->>> ExplicitProcesses.eval 5 ex1
-([RTPrimitive (PrimDouble 2.3),RTPrimitive (PrimInteger 1),RTPrimitive (PrimInteger 10),RTPrimitive (PrimInteger 20)],Nothing)
+>>> ExplicitProcesses.eval 4 ex1
+([RTPrimitive (PrimInteger 1),RTPrimitive (PrimDouble 2.3),RTPrimitive (PrimInteger 10),RTPrimitive (PrimInteger 20)],Nothing)
 
->>> ExplicitProcesses.eval 72 ex1
+>>> ExplicitProcesses.eval 24 ex1
 ([RTPrimitive (PrimInteger 1),RTPrimitive (PrimDouble 2.3),RTPrimitive (PrimInteger 20),RTPrimitive (PrimInteger 20)],Nothing)
 
->>> ExplicitProcesses.eval 81 ex1
+>>> ExplicitProcesses.eval 85 ex1
 ([RTPrimitive (PrimDouble 2.3),RTPrimitive (PrimInteger 1),RTPrimitive (PrimInteger 20),RTPrimitive (PrimInteger 20)],Nothing)
 
 -}

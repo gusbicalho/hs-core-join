@@ -93,8 +93,16 @@ rcham initialProcess g =
         Syntax.Initial.ProcInert -> do
           pure ()
         Syntax.Initial.ProcParallel p1 p2 -> do
-          addProcessThread (MkProcessThread env p1)
-          addProcessThread (MkProcessThread env p2)
+          let threadWithCaptures p =
+                MkProcessThread
+                  ( MkEnv
+                      . flip Map.restrictKeys (Syntax.Initial.freeVariables p)
+                      . getEnv
+                      $ env
+                  )
+                  p
+          addProcessThread (threadWithCaptures p1)
+          addProcessThread (threadWithCaptures p2)
         Syntax.Initial.ProcLocalDef def body -> do
           runLocalDef env def body
         Syntax.Initial.ProcSend channel args -> do
@@ -102,7 +110,7 @@ rcham initialProcess g =
   runLocalDef env def body = do
     siteId <- freshDefinitionSiteId
     let newChannels = Syntax.Initial.definedNames def
-    let newEnv = MkEnv $ Map.union (Map.fromSet (RTChannelReference . MkChannelReference siteId) newChannels) (getEnv env)
+    let newEnv = MkEnv (Map.fromSet (RTChannelReference . MkChannelReference siteId) newChannels) <> env
     addDefinitionSite
       siteId
       MkDefinitionSite
@@ -134,9 +142,10 @@ rcham initialProcess g =
   deliver ChemSol{sentMessages, definitionSites} =
     definitionSites & concatMapWithKeyToList \siteId def@MkDefinitionSite{siteDeliveredMessages} ->
       let deliverable = Maybe.fromMaybe mempty $ Map.lookup siteId sentMessages
-       in deliverable & multiSetMapMaybeToList \msg -> Just do
-            removeSentMessage msg
-            addDefinitionSite siteId def{siteDeliveredMessages = MultiSet.insert msg siteDeliveredMessages}
+       in deliverable & multiSetMapMaybeToList (Just . deliverOne (siteId, def))
+  deliverOne (siteId, def@MkDefinitionSite{siteDeliveredMessages}) msg = do
+    removeSentMessage msg
+    addDefinitionSite siteId def{siteDeliveredMessages = MultiSet.insert msg siteDeliveredMessages}
   react ChemSol{definitionSites, sentMessages} =
     definitionSites & concatMapWithKeyToList \definitionId def@MkDefinitionSite{siteDeliveredMessages, siteDefinition} ->
       case siteDefinition of
@@ -264,6 +273,7 @@ data RTPrimitive where
 
 newtype Env = MkEnv {getEnv :: Map String RTValue}
   deriving (Eq, Ord, Show)
+  deriving newtype (Semigroup, Monoid)
 
 data ProcessThread = MkProcessThread
   { processEnv :: Env
